@@ -5,7 +5,6 @@
  <meta http-equiv="X-UA-Compatible" content="IE=edge">
  <meta name="viewport" content="width=device-width, initial-scale=1.0">
  <link rel="stylesheet" href="style.css">
- <link rel="stylesheet" href="snake-style.css">
  <title>Snake</title>
 
 </head>
@@ -34,9 +33,11 @@
             <div class="title">ROOM</div>
             <div class="room-list">
               ROOMS:
-              <div id="room-elem"></div>
-              <input type="text" id="name-room">
-              <button id="new-room">create new room</button>
+              <div class="room-elem flex">
+                <div class="room-elem-title"> room_name </div>
+                <button>go to this room_name</button>
+              </div>
+              <button id="new-room">go to new room</button>
             </div>
           </div>
         </div>
@@ -52,22 +53,13 @@
         <div class="flex">
           <div class="flex-c">
             <div class="title">GAME</div>
-    <div id="games">
-        <div class="game-header">
-            <div class="game-score">    
-                <span class="score-count" id="score">0</span>
-            </div>
-        </div> 
-        <div class="canvas-wrapper">
-            <canvas id="game-canvas"></canvas>
-        </div>
-    </div>
           </div>
         </div>
       </div>
     </div>
 
- <script src="client.js"></script>
- <script src="snake-script.js"></script>
+ <!-- <script src="client.js"></script> -->
+ <script src="ws-client.js"></script>
+ <script src="ws-client-new.js"></script>
 </body>
 </html>

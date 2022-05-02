@@ -1,0 +1,32 @@
+body {
+  width: 100%;
+  height: 100%;
+  background-color: rgb(19, 19, 19);
+  color: rgb(219, 141, 141);
+}
+
+.flex {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+.flex-vc {
+  align-items: center;
+}
+.flex-c {
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.screen {
+  border: 1mm ridge rgba(211, 220, 50, 0.6);
+  /* position: fixed;
+      top: 0;
+      left: 0; */
+  width: 90%;
+  height: 90%;
+}
+.title {
+  font-size: 50px;
+}
