@@ -5,8 +5,8 @@ const clients = {
   count: function () {
     return this.storage.size;
   },
-  create: function (ws) {
-    this.storage.set(ws, { id: this._uuidv4() });
+  create: function (ws, id) {
+    this.storage.set(ws, { id });
     console.log(this.count());
   },
   drop: function (ws) {
@@ -53,7 +53,7 @@ const room = {
   }
 }
 
-const MAP = {
+const map = {
   size: {
     x: 10,
     y: 10,
@@ -72,38 +72,43 @@ const MAP = {
     [7, 3],
   ],
   snake: [
+  ],
+  add_snake(id, point){
+    this.snake.push(
     {
-      head: { x: 7, y: 8 },
+      id: id,
+      head: { x: point.x, y: point.y },
       tail: [
-        [7, 9],
-        [8, 9],
+        [point.x, point.y--],
+        [point.x, point.y--],
       ],
     },
-    // {
-    //   head: { x: 4, y: 5 },
-    //   tail: [
-    //     [4, 6],
-    //     [4, 7],
-    //     [4, 8],
-    //   ],
-    // },
-  ],
-}
+    )
+  },
 
+  check_collision(obj1, obj2) {
+    return JSON.stringify(obj1) === JSON.stringify(obj2);
+  },
 
-const prop = {
-  b: 20,
-  w: 10,
-  l: 100
-}
+  rand (val) {
+    return this.getRandomInt(0, val) * this.size;
+  },
+ getRandomInt(min, max) {
+  return Math.floor(Math.random() * (max - min) + min);
+},
+  rand_cord(){
+    let x = this.rand(this.size.x);
+    let y = this.rand(this.size.y);
 
-function map_gen(b, w, l)  {
-  let arr = ['b', 'w', 'n']
-  function random() {
-    return Math.floor(Math.random() * arr.length) 
+    for (let e of this.berry)
+      if (this.check_collision(e, { x, y })) return this.rand_cord();
+
+    for (let e of this.wall)
+      if (this.check_collision(e, { x, y })) return this.rand_cord();
   }
-  function init() {
-    let cw = 0
+}
+  
+function rand_map(){
     let cb = 0 
     let res = []
     for (let i = 0; i < l; i++) {
@@ -122,15 +127,24 @@ function map_gen(b, w, l)  {
     }
     return res
   }
-  let arrr = init()
-  return arrr
-}
 
 
 
 const wss = server.run("localhost", 9000);
 wss.on("connection", (ws) => {
-  clients.create(ws);
+  console.log('connect')
+  const id = clients._uuidv4()
+  clients.create(ws, id);
+  try {
+    
+  map.add_snake(id, map.rand_cord())
+
+  console.log(map)
+  } catch (error) {
+    
+  console.log(error)
+  }
+
   ws.on("message", (msg) => {
     const req = JSON.parse(msg);
     console.log(req)
@@ -153,10 +167,13 @@ wss.on("connection", (ws) => {
         break;
       }
       case 'move':
-        MAP.snake = [req.data]
-        console.warn(MAP.snake)
+        map.snake = [req.data]
+        console.warn(map.snake)
 
-        clients.broadcast({action: 'map-update', data: MAP})
+        clients.broadcast({action: 'map-update', data: map})
+      case 'start-game':
+        send(ws, {action: 'set-id', data:{id: clients.metadata(ws).id}})
+        clients.broadcast({action: 'map-update', data: map})
         break;
 
       default:

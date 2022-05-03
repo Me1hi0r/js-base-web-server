@@ -1,43 +1,5 @@
-const ws = new WebSocket("ws://localhost:9000");
-
 let rooms;
-ws.onopen = function () {
-  console.log("подключился");
-};
-
-ws.onerror = function (err) {
-  console.log(err);
-};
-
-ws.onmessage = function (message) {
-  try {
-    const json = JSON.parse(message.data);
-    switch (json.action) {
-      case "get-room":
-        const elem = document.getElementById("room-elem");
-        elem.replaceChildren();
-        rooms = json.data.forEach((name) =>
-          elem.appendChild(room_element(name))
-        );
-        break;
-      case "get-map":
-        new_game();
-        // console.log(json.data);
-      case "map-update":
-        // console.warn("data");
-        // console.warn(json.data);
-        // console.warn("resp");
-        // console.warn(response);
-        render(json.data);
-        break;
-
-      default:
-        break;
-    }
-  } catch (error) {
-    console.warn(message, error);
-  }
-};
+let user_ws;
 
 function room_element(name) {
   const wrap = document.createElement("div");
@@ -85,7 +47,10 @@ const open = (name) => {
 };
 
 window.onload = () => {
-  frame.nav.game.onclick = () => open(frame.game);
+  frame.nav.game.onclick = () => {
+    open(frame.game);
+    setTimeout(() => send({ action: "start-game" }), 1000);
+  };
   frame.nav.room.onclick = () => {
     setTimeout(() => send({ action: "get-room" }), 1000);
 
@@ -105,145 +70,174 @@ window.onload = () => {
     setTimeout(() => send({ action: "get-room" }), 100);
   };
   frame.nav.game.click();
-  render(response);
+  // render(response);
+
+  ws = new WebSocket("ws://localhost:9000");
+
+  ws.onopen = function () {
+    console.log("подключился");
+  };
+
+  ws.onerror = function (err) {
+    console.log(err);
+  };
+
+  ws.onmessage = function (message) {
+    try {
+      const json = JSON.parse(message.data);
+      switch (json.action) {
+        case "get-room":
+          const elem = document.getElementById("room-elem");
+          elem.replaceChildren();
+          rooms = json.data.forEach((name) =>
+            elem.appendChild(room_element(name))
+          );
+          break;
+        case "get-map":
+          new_game();
+        // console.log(json.data);
+        case "map-update":
+          // console.warn("data");
+          // console.warn("resp");
+          // console.warn(response);
+          console.log('update')
+          console.warn(json.data);
+          // snake.update(snake);
+          map.set(json.data);
+
+          map.render();
+          // render(json.data);
+          break;
+
+        case "set-id":
+          console.warn('setid');
+          snake.set_id(json.data.id);
+          break;
+
+        default:
+          break;
+      }
+    } catch (error) {
+      console.warn(message, error);
+    }
+  };
 };
 
-let canvas = document.querySelector("#game-canvas");
-let context = canvas.getContext("2d");
-
-const response = {
-  size: {
-    x: 10,
-    y: 10,
-    s: 16,
-  },
-  wall: [
-    [9, 0],
-    [3, 5],
-    [3, 9],
-    [3, 2],
-    [5, 8],
-  ],
-  berry: [
-    [2, 4],
-    [8, 2],
-    [7, 3],
-  ],
-  snake: [
-    {
-      head: { x: 7, y: 8 },
-      tail: [
-        [7, 9],
-        [8, 9],
-      ],
-    },
-    {
-      head: { x: 4, y: 5 },
-      tail: [
-        [4, 6],
-        [4, 7],
-        [4, 8],
-      ],
-    },
-  ],
-};
-
-prop = response;
-
-const s = {
+const snake = {
+  id: '',
   x: 0,
   y: 0,
   len: 3,
   tail: [],
 
+  set_id(id) {
+    this.id = id;
+  },
+
   update(head, tail) {
-    this.x = head.x * prop.size.s;
-    this.y = head.y * prop.size.s;
+    this.x = head.x * map.size.s;
+    this.y = head.y * map.size.s;
     this.tail = tail;
   },
 
   tail_update(x, y) {
-    this.tail.unshift([x / prop.size.s, y / prop.size.s]);
+    this.tail.unshift([x / map.size.s, y / map.size.s]);
     if (this.tail.length > this.len) {
       let drop = this.tail.pop();
-      context.clearRect(drop.x, drop.y, prop.size.s, prop.size.s);
+      map.context.clearRect(drop.x, drop.y, map.size.s, map.size.s);
     }
   },
 
   position() {
     return {
-      head: { x: this.x / prop.size.s, y: this.y / prop.size.s },
+      id: this.id,
+      head: { x: this.x / map.size.s, y: this.y / map.size.s },
       tail: this.tail,
     };
   },
 
   left() {
     this.tail_update(this.x, this.y);
-    this.x =
-      this.x <= 0 ? prop.size.s * (prop.size.x - 1) : this.x - prop.size.s;
+    this.x = this.x <= 0 ? map.size.s * (map.size.x - 1) : this.x - map.size.s;
     return this.position();
   },
   right() {
     this.tail_update(this.x, this.y);
-    this.x =
-      this.x >= prop.size.s * (prop.size.x - 1) ? 0 : this.x + prop.size.s;
+    this.x = this.x >= map.size.s * (map.size.x - 1) ? 0 : this.x + map.size.s;
     return this.position();
   },
   down() {
     this.tail_update(this.x, this.y);
-    this.y =
-      this.y >= prop.size.s * (prop.size.y - 1) ? 0 : this.y + prop.size.s;
+    this.y = this.y >= map.size.s * (map.size.y - 1) ? 0 : this.y + map.size.s;
     return this.position();
   },
   up() {
     this.tail_update(this.x, this.y);
-    this.y =
-      this.y <= 0 ? prop.size.s * (prop.size.y - 1) : this.y - prop.size.s;
+    this.y = this.y <= 0 ? map.size.s * (map.size.y - 1) : this.y - map.size.s;
     return this.position();
   },
 };
 
-const render = function (prop) {
-  const color = {
+const map = {
+  size: {},
+  snake: [],
+  berry: [],
+  wall: [],
+  context: null,
+  color: {
     snake: "#FA0556",
     tail: "#A00034",
     empty: "#000000",
     wall: "#00FF00",
     berry: "#0000FF",
-  };
+  },
 
-  console.log("render");
-  const canvas = id("game-canvas");
-  canvas.width = prop.size.x * prop.size.s;
-  canvas.height = prop.size.y * prop.size.s;
-  ["wall", "berry", "snake"].forEach((obj) => subrend(prop, obj));
+  set(data) {
+    (this.size = data.size),
+      (this.snake = data.snake),
+      (this.berry = data.berry),
+      (this.wall = data.wall);
+  },
 
-  function subrend(prop, obj) {
-    if (obj === "snake") {
-      let first = true;
-      for (let { head, tail } of prop.snake) {
-        if (first) {
-          s.update(head, tail);
-          first = false;
-        }
+  create_field() {
+    const canvas = id("game-canvas");
+    canvas.width = this.size.x * this.size.s;
+    canvas.height = this.size.y * this.size.s;
+    this.context = canvas.getContext("2d");
+    return canvas.getContext("2d");
+  },
 
-        paint(head.x * prop.size.s, head.y * prop.size.s, color.snake);
-        tail.forEach((t) => {
-          paint(t[0] * prop.size.s, t[1] * prop.size.s, color.tail);
-        });
+  render() {
+    console.log(this);
+    const map = this.create_field();
+    console.log("render");
+
+    this.berry.forEach(([x, y]) => {
+      paint(map, x, y, this.size.s, this.color.berry);
+    });
+
+    this.wall.forEach(([x, y]) => {
+      paint(map, x, y, this.size.s, this.color.wall);
+    });
+
+    let first = true;
+    this.snake.forEach(({ head, tail }) => {
+      if (first) {
+        snake.update(head, tail);
+        first = false;
       }
-    } else {
-      for (let [x, y] of prop[obj]) {
-        console.log(x, y);
-        paint(x * prop.size.s, y * prop.size.s, color[obj]);
-      }
-    }
 
-    function paint(x, y, color) {
-      context.fillStyle = color;
-      context.fillRect(x, y, prop.size.s, prop.size.s);
+      paint(map, head.x, head.y, this.size.s, this.color.snake);
+      tail.forEach((t) => {
+        paint(map, t[0], t[1], this.size.s, this.color.tail);
+      });
+    });
+
+    function paint(map, x, y, s, color) {
+      map.fillStyle = color;
+      map.fillRect(x * s, y * s, s, s);
     }
-  }
+  },
 };
 
 document.onkeydown = function (e) {
@@ -259,17 +253,17 @@ document.onkeydown = function (e) {
       console.log("dd");
       send({
         action: "move",
-        data: s.up(),
+        data: snake.up(),
       });
       break;
     case key.down:
-      send({ action: "move", data: s.down() });
+      send({ action: "move", data: snake.down() });
       break;
     case key.left:
-      send({ action: "move", data: s.left() });
+      send({ action: "move", data: snake.left() });
       break;
     case key.right:
-      send({ action: "move", data: s.right() });
+      send({ action: "move", data: snake.right() });
       break;
     default:
       break;
