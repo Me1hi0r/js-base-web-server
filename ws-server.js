@@ -31,40 +31,6 @@ const clients = {
   },
 };
 
-// const actions = function (msg, ws) {
-//   switch (msg.action) {
-//     case "get-rooms":
-//       ws.send(JSON.stringify({'action':'one'}))
-//       break;
-
-//     default:
-//       msg.sender = clients.metadata(ws).id;
-//       clients.broadcast(msg);
-//       break;
-//   }
-// };
-
-// const action = {
-//   action: "",
-//   data: "",
-//   check(msg){
-//     m = JSON.parse(msg)
-//     this.action = m.action
-//     this.data = m.data
-//     this.switch(this.action)
-//   },
-//   switch(key){
-//     switch(key){
-//       case "get-room":
-//         send(ws, {
-//           'action': key,
-//           'data': ['rrrr1', 'rrrr2']})
-//     }
-
-//   }
-
-// }
-
 const server = {
   run: function (host, port) {
     port = port || "9000";
@@ -87,142 +53,111 @@ const room = {
   }
 }
 
-  function random_map() {
-    console.log("init");
-    const canvas = by_id("game-canvas");
-    canvas.width = prop.size.w * prop.size.s;
-    canvas.height = prop.size.h * prop.size.s;
+const MAP = {
+  size: {
+    x: 10,
+    y: 10,
+    s: 16,
+  },
+  wall: [
+    [9, 0],
+    [3, 5],
+    [3, 9],
+    [3, 2],
+    [5, 8],
+  ],
+  berry: [
+    [2, 4],
+    [8, 2],
+    [7, 3],
+  ],
+  snake: [
+    {
+      head: { x: 7, y: 8 },
+      tail: [
+        [7, 9],
+        [8, 9],
+      ],
+    },
+    // {
+    //   head: { x: 4, y: 5 },
+    //   tail: [
+    //     [4, 6],
+    //     [4, 7],
+    //     [4, 8],
+    //   ],
+    // },
+  ],
+}
 
-    for (let i = 0; i < prop.berry.length; i++) {
-      this.berrys.push(this.rand_cord());
-    }
-    for (let i = 0; i < this.wall; i++) {
-      this.walls.push(this.rand_cord());
-    }
-  }
-  function rand_cord() {
-    let x = rand(prop.size.w);
-    let y = rand(prop.size.h);
-
-    for (let b of prop.berry)
-      if (check_collision(b, { x, y })) return rand_cord();
-
-    for (let w of prop.wall)
-      if (check_collision(w, { x, y })) return rand_cord();
-
-    return { x, y };
-
-    function rand(val) {
-      return getRandomInt(0, val) * prop.size;
-    }
-
-    function check_collision(obj1, obj2) {
-      return JSON.stringify(obj1) === JSON.stringify(obj2);
-    }
-  }
-const rooms = ["room-one", "best-room"];
 
 const prop = {
-  size:{
-    h: 10,
-    w: 10
-  },
-  berry: 5,
-  walls: 5,
-  cell_size: 16
+  b: 20,
+  w: 10,
+  l: 100
 }
 
-const  map_gen = (prop)=>{
-  return {
-    col: prop.size.w,
-    row: prop.size.h,
-    size: prop.cell_size,
-    berry: prop.berry,
-    wall: prop.walls,
-    berrys: [],
-    walls: [],
-
-    check_collision(obj1, obj2){
-        return JSON.stringify(obj1) === JSON.stringify(obj2)
-    },
-    rand_cord: function () {
-        let x = this.rand(this.col)
-        let y = this.rand(this.row)
-
-        for (let e of this.berrys)
-            if (this.check_collision(e, {x:x,y:y}))
-                return this.rand_cord()
-
-            
-        for (let e of this.walls)
-            if (this.check_collision(e, {x:x,y:y}))
-                return this.rand_cord()
-        
-        return {x, y}
-        },
-
-    rand: function (val){
-        return getRandomInt(0, val) * this.size
-    },
-
-    render: function () {
-        console.log('render')
-        for (let e of this.walls){
-            console.log(e.x, e.y)
-            paint(e.x, e.y, color.wall)
-        }
-
-        for (let e of this.berrys){
-            paint(e.x, e.y, color.berry)
-        }
-
-    },
-    init: function () {
-        console.log('init')
-        const canvas = by_id('game-canvas')
-        canvas.width = this.col * this.size
-        canvas.height = this.row * this.size
-        for (let i = 0; i < this.berry; i++) {
-            this.berrys.push(this.rand_cord())          
-        }
-        for (let i = 0; i < this.wall; i++) {
-            this.walls.push(this.rand_cord())          
-        }
-    },
-    reset: function () {
-        this.berrys = []
-        this.walls = []
-        this.init()
-        this.render()
-    }
+function map_gen(b, w, l)  {
+  let arr = ['b', 'w', 'n']
+  function random() {
+    return Math.floor(Math.random() * arr.length) 
   }
+  function init() {
+    let cw = 0
+    let cb = 0 
+    let res = []
+    for (let i = 0; i < l; i++) {
+      let rand = random()
+      if (arr[rand] == arr[0] && cb < b) {
+        res.push(arr[rand])
+        cb++
+        continue
+      }
+      if (arr[rand] == arr[1] && cw < w) {
+        res.push(arr[rand])
+        cw++
+        continue
+      }
+      res.push(arr[rand])
+    }
+    return res
+  }
+  let arrr = init()
+  return arrr
 }
-
-const my_map = map_gen(prop)
-my_map
 
 
 
 const wss = server.run("localhost", 9000);
 wss.on("connection", (ws) => {
   clients.create(ws);
-  send(ws, { text: `Приветs ${clients.count()}` });
-
   ws.on("message", (msg) => {
-    console.log("message recive");
-    //  action(msg)
     const req = JSON.parse(msg);
+    console.log(req)
     switch (req.action) {
       case "get-room":
         send(ws, {
-          'action': req.action, 
-          'data': room.list() 
+          action: req.action, 
+          data: room.list() 
         })
         break;
       case 'create-room': {
         room.create(req.data)
         break;
       }
+      case 'get-map' : {
+        send(ws, {
+          action: req.action,
+          data: map_gen(prop.b, prop.w, prop.l)
+        })
+        break;
+      }
+      case 'move':
+        MAP.snake = [req.data]
+        console.warn(MAP.snake)
+
+        clients.broadcast({action: 'map-update', data: MAP})
+        break;
 
       default:
         break;
@@ -235,16 +170,6 @@ wss.on("connection", (ws) => {
   });
 });
 
-const cmd = {
-  "get-room": () => console.log("get"),
-  "create-room": () => 1,
-  "enter-room": () => 2,
-};
-
-function action(msg) {
-  const req = JSON.parse(msg);
-  cmd[req.action]();
-}
 
 const send = function (socket, param) {
   socket.send(JSON.stringify(param));
