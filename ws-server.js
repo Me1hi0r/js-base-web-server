@@ -1,24 +1,36 @@
 const socket = require("ws");
 
-const clients = {
-  storage: new Map(),
-  count: function () {
-    return this.storage.size;
+const players = {
+  storage: {},
+  count() {
+    return Object.keys(this.storage).length;
   },
-  create: function (ws, id) {
-    this.storage.set(ws, { id });
-    console.log(this.count());
+  add(ws) {
+    const rand_id = this._uuidv4();
+    this.storage[rand_id] = ws;
+    return rand_id;
   },
-  drop: function (ws) {
-    this.storage.delete(ws);
+  drop(id) {
+    delete this.storage[id];
   },
-  metadata: function (ws) {
-    return this.storage.get(ws);
+  get_socket(id) {
+    return this.storage[id];
   },
-  broadcast: function (msg) {
-    [...this.storage.keys()].forEach((client) => {
-      client.send(JSON.stringify(msg));
+  get_id(ws) {
+    let id;
+    Object.entries(this.storage).forEach((client) => {
+      if (client[1] === ws) {
+        id = client[0];
+      }
     });
+    return id;
+  },
+  send_all(msg) {
+    console.log(msg);
+    Object.values(this.storage).forEach((ws) => ws.send(JSON.stringify(msg)));
+  },
+  all_update() {
+    this.send_all({ action: "map-update", data: map });
   },
   _uuidv4: function () {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
@@ -46,12 +58,12 @@ const room = {
     return this.storage.length;
   },
   create: function (name) {
-    this.storage.add(name)
+    this.storage.add(name);
   },
-  list: function(){
-    return Array.from(this.storage) 
-  }
-}
+  list: function () {
+    return Array.from(this.storage);
+  },
+};
 
 const map = {
   size: {
@@ -71,32 +83,30 @@ const map = {
     [8, 2],
     [7, 3],
   ],
-  snake: [
-  ],
-  add_snake(id, point){
-    this.snake.push(
-    {
+  snakes: {},
+  add_snake(id) {
+    const point = this.rand_cord()
+    this.snakes[id] = {
       id: id,
       head: { x: point.x, y: point.y },
       tail: [
         [point.x, point.y--],
         [point.x, point.y--],
       ],
-    },
-    )
+    };
   },
 
   check_collision(obj1, obj2) {
     return JSON.stringify(obj1) === JSON.stringify(obj2);
   },
 
-  rand (val) {
-    return this.getRandomInt(0, val) * this.size;
+  rand(val) {
+    return this.getRandomInt(0, val) * this.size.s;
   },
- getRandomInt(min, max) {
-  return Math.floor(Math.random() * (max - min) + min);
-},
-  rand_cord(){
+  getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min) + min);
+  },
+  rand_cord() {
     let x = this.rand(this.size.x);
     let y = this.rand(this.size.y);
 
@@ -105,75 +115,36 @@ const map = {
 
     for (let e of this.wall)
       if (this.check_collision(e, { x, y })) return this.rand_cord();
-  }
-}
-  
-function rand_map(){
-    let cb = 0 
-    let res = []
-    for (let i = 0; i < l; i++) {
-      let rand = random()
-      if (arr[rand] == arr[0] && cb < b) {
-        res.push(arr[rand])
-        cb++
-        continue
-      }
-      if (arr[rand] == arr[1] && cw < w) {
-        res.push(arr[rand])
-        cw++
-        continue
-      }
-      res.push(arr[rand])
-    }
-    return res
-  }
-
-
+    
+    return {x, y}
+  },
+};
 
 const wss = server.run("localhost", 9000);
-wss.on("connection", (ws) => {
-  console.log('connect')
-  const id = clients._uuidv4()
-  clients.create(ws, id);
-  try {
-    
-  map.add_snake(id, map.rand_cord())
 
-  console.log(map)
-  } catch (error) {
-    
-  console.log(error)
-  }
+wss.on("connection", (ws) => {
+  console.log('connection ')
+  new_id = players.add(ws)
+  map.add_snake(new_id)
 
   ws.on("message", (msg) => {
     const req = JSON.parse(msg);
-    console.log(req)
     switch (req.action) {
-      case "get-room":
-        send(ws, {
-          action: req.action, 
-          data: room.list() 
-        })
+      case "get-room": 
+        ws.send(JSON.stringify({ action: req.action, data: room.list(), }));
         break;
-      case 'create-room': {
-        room.create(req.data)
+      case "create-room": 
+        room.create(req.data); 
         break;
-      }
-      case 'get-map' : {
-        send(ws, {
-          action: req.action,
-          data: map_gen(prop.b, prop.w, prop.l)
-        })
+      case "get-map": 
+        ws.send(JSON.stringify({ action: req.action, data: map_gen(prop.b, prop.w, prop.l)}));
         break;
-      }
-      case 'move':
-        map.snake = [req.data]
-        console.warn(map.snake)
-
-        clients.broadcast({action: 'map-update', data: map})
-      case 'start-game':
-        send(ws, {action: 'set-id', data:{id: clients.metadata(ws).id}})
-        clients.broadcast({action: 'map-update', data: map})
+      case "move":
+        map.snakes[req.data.id] = req.data
+        players.all_update()
+      case "start-game":
+        ws.send(JSON.stringify({ action: "set-id", data: { id: players.get_id(ws) } }))
+        players.all_update()
         break;
 
       default:
@@ -182,11 +153,10 @@ wss.on("connection", (ws) => {
   });
 
   ws.on("close", () => {
-    clients.drop(ws);
+    players.drop(players.get_id(ws))
     console.log("Пользователь отключился");
   });
 });
-
 
 const send = function (socket, param) {
   socket.send(JSON.stringify(param));

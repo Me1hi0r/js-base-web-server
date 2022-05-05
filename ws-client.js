@@ -49,6 +49,7 @@ const open = (name) => {
 window.onload = () => {
   frame.nav.game.onclick = () => {
     open(frame.game);
+    console.log('start')
     setTimeout(() => send({ action: "start-game" }), 1000);
   };
   frame.nav.room.onclick = () => {
@@ -70,10 +71,8 @@ window.onload = () => {
     setTimeout(() => send({ action: "get-room" }), 100);
   };
   frame.nav.game.click();
-  // render(response);
 
   ws = new WebSocket("ws://localhost:9000");
-
   ws.onopen = function () {
     console.log("подключился");
   };
@@ -94,19 +93,12 @@ window.onload = () => {
           );
           break;
         case "get-map":
-          new_game();
-        // console.log(json.data);
-        case "map-update":
-          // console.warn("data");
-          // console.warn("resp");
-          // console.warn(response);
-          console.log('update')
-          console.warn(json.data);
-          // snake.update(snake);
-          map.set(json.data);
+          // new_game();
 
+
+        case "map-update":
+          map.set(json.data);
           map.render();
-          // render(json.data);
           break;
 
         case "set-id":
@@ -135,8 +127,8 @@ const snake = {
   },
 
   update(head, tail) {
-    this.x = head.x * map.size.s;
-    this.y = head.y * map.size.s;
+    this.x = head.x; 
+    this.y = head.y;
     this.tail = tail;
   },
 
@@ -148,10 +140,10 @@ const snake = {
     }
   },
 
-  position() {
+  id_n_coord() {
     return {
       id: this.id,
-      head: { x: this.x / map.size.s, y: this.y / map.size.s },
+      head: { x: this.x, y: this.y },
       tail: this.tail,
     };
   },
@@ -159,22 +151,22 @@ const snake = {
   left() {
     this.tail_update(this.x, this.y);
     this.x = this.x <= 0 ? map.size.s * (map.size.x - 1) : this.x - map.size.s;
-    return this.position();
+    return this.id_n_coord();
   },
   right() {
     this.tail_update(this.x, this.y);
     this.x = this.x >= map.size.s * (map.size.x - 1) ? 0 : this.x + map.size.s;
-    return this.position();
+    return this.id_n_coord();
   },
   down() {
     this.tail_update(this.x, this.y);
     this.y = this.y >= map.size.s * (map.size.y - 1) ? 0 : this.y + map.size.s;
-    return this.position();
+    return this.id_n_coord();
   },
   up() {
     this.tail_update(this.x, this.y);
     this.y = this.y <= 0 ? map.size.s * (map.size.y - 1) : this.y - map.size.s;
-    return this.position();
+    return this.id_n_coord();
   },
 };
 
@@ -193,10 +185,10 @@ const map = {
   },
 
   set(data) {
-    (this.size = data.size),
-      (this.snake = data.snake),
-      (this.berry = data.berry),
-      (this.wall = data.wall);
+    this.size = data.size;
+    this.snake = data.snakes;
+    this.berry = data.berry
+    this.wall = data.wall
   },
 
   create_field() {
@@ -220,14 +212,16 @@ const map = {
       paint(map, x, y, this.size.s, this.color.wall);
     });
 
-    let first = true;
-    this.snake.forEach(({ head, tail }) => {
-      if (first) {
+    console.log("before render snake")
+    console.log( this.snake)
+
+    Object.values(this.snake).forEach(({id, head, tail }) => {
+      console.warn(id, head, tail)
+      if (id === snake.id) {
         snake.update(head, tail);
-        first = false;
       }
 
-      paint(map, head.x, head.y, this.size.s, this.color.snake);
+      paint(map, head.x/this.size.s, head.y/this.size.s, this.size.s, this.color.snake);
       tail.forEach((t) => {
         paint(map, t[0], t[1], this.size.s, this.color.tail);
       });
@@ -251,9 +245,10 @@ document.onkeydown = function (e) {
   switch (e.key) {
     case key.up:
       console.log("dd");
+      u =  snake.up(),
       send({
         action: "move",
-        data: snake.up(),
+        data:u
       });
       break;
     case key.down:
