@@ -213,7 +213,6 @@ const map = {
     });
 
     console.log("before render snake")
-    console.log( this.snake)
 
     Object.values(this.snake).forEach(({id, head, tail }) => {
       console.warn(id, head, tail)
@@ -222,8 +221,8 @@ const map = {
       }
 
       paint(map, head.x/this.size.s, head.y/this.size.s, this.size.s, this.color.snake);
-      tail.forEach((t) => {
-        paint(map, t[0], t[1], this.size.s, this.color.tail);
+      tail.forEach(([x, y]) => {
+        paint(map, x, y, this.size.s, this.color.tail);
       });
     });
 
@@ -244,12 +243,7 @@ document.onkeydown = function (e) {
   console.log(e);
   switch (e.key) {
     case key.up:
-      console.log("dd");
-      u =  snake.up(),
-      send({
-        action: "move",
-        data:u
-      });
+      send({ action: "move", data:snake.up() });
       break;
     case key.down:
       send({ action: "move", data: snake.down() });
@@ -260,6 +254,7 @@ document.onkeydown = function (e) {
     case key.right:
       send({ action: "move", data: snake.right() });
       break;
+
     default:
       break;
   }
