@@ -1,56 +1,32 @@
 const socket = require("ws");
 
-const players = {
-  storage: {},
-  count() {
-    return Object.keys(this.storage).length;
-  },
-  add(ws) {
-    const rand_id = this._uuidv4();
-    this.storage[rand_id] = ws;
-    return rand_id;
-  },
-  drop(id) {
-    delete this.storage[id];
-  },
-  get_socket(id) {
-    return this.storage[id];
-  },
-  get_id(ws) {
-    let id;
-    Object.entries(this.storage).forEach((client) => {
-      if (client[1] === ws) {
-        id = client[0];
-      }
-    });
-    return id;
-  },
-  send_all(msg) {
-    console.log(msg);
-    Object.values(this.storage).forEach((ws) => ws.send(JSON.stringify(msg)));
-  },
-  all_update() {
-    this.send_all({ action: "map-update", data: map });
-  },
-  _uuidv4: function () {
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
-      /[xy]/g,
-      function (char) {
-        const rand = (Math.random() * 16) | 0;
-        return (char == "x" ? rand : (rand & 0x3) | 0x8).toString(16);
-      }
-    );
-  },
-};
+const wss = new socket.Server({ host: "localhost", port: 9000 });
+wss.on("connection", (ws) => {
+  map.players.add(ws);
+  map.players.broadcast();
 
-const server = {
-  run: function (host, port) {
-    port = port || "9000";
-    host = host || "localhost";
-    console.log(`Сервер запущен на ${host}:${port} порту`);
-    return new socket.Server({ host: host, port: port.toString() });
-  },
-};
+  ws.on("message", (msg) => {
+    const req = JSON.parse(msg);
+    if (req.action === "create-room") room.create(req.data);
+    if (req.action === "get-room")
+      ws.send(
+        JSON.stringify({
+          action: "get-room",
+          data: room.list(),
+        })
+      );
+    if (req.action === "move") {
+      console.log('move')
+      map.senpentarium[req.data.id] = req.data;
+      map.players.broadcast();
+    }
+  });
+
+  ws.on("close", () => {
+    map.players.drop(ws);
+    console.log("Пользователь отключился");
+  });
+});
 
 const room = {
   storage: new Set(),
@@ -83,10 +59,10 @@ const map = {
     [8, 2],
     [7, 3],
   ],
-  snakes: {},
+  senpentarium: {},
   add_snake(id) {
-    const point = this.rand_cord()
-    this.snakes[id] = {
+    const point = this.rand_cord();
+    this.senpentarium[id] = {
       id: id,
       head: { x: point.x, y: point.y },
       tail: [
@@ -115,49 +91,58 @@ const map = {
 
     for (let e of this.wall)
       if (this.check_collision(e, { x, y })) return this.rand_cord();
-    
-    return {x, y}
+
+    return { x, y };
   },
-};
+  players: {
+    storage: {},
+    count() {
+      return Object.keys(this.storage).length;
+    },
+    add(ws) {
+      const id = this._uuidv4();
+      this.storage[id] = ws;
+      map.add_snake(id);
+      ws.send(JSON.stringify({ action: "set-id", data: { id } }));
+    },
+    drop(ws) {
+      delete this.storage[this.get_id(ws)];
+    },
+    get_socket(id) {
+      return this.storage[id];
+    },
+    get_id(ws) {
+      let id;
+      Object.entries(this.storage).forEach((client) => {
+        if (client[1] === ws) {
+          id = client[0];
+        }
+      });
+      return id;
+    },
+    send_all(msg) {
+      console.log(msg);
+      Object.values(this.storage).forEach((ws) => ws.send(JSON.stringify(msg)));
 
-const wss = server.run("localhost", 9000);
-
-wss.on("connection", (ws) => {
-  console.log('connection ')
-  new_id = players.add(ws)
-  map.add_snake(new_id)
-
-  ws.on("message", (msg) => {
-    const req = JSON.parse(msg);
-    switch (req.action) {
-      case "get-room": 
-        ws.send(JSON.stringify({ action: req.action, data: room.list(), }));
-        break;
-      case "create-room": 
-        room.create(req.data); 
-        break;
-      case "get-map": 
-        ws.send(JSON.stringify({ action: req.action, data: map_gen(prop.b, prop.w, prop.l)}));
-        break;
-      case "move":
-        map.snakes[req.data.id] = req.data
-        players.all_update()
-      case "start-game":
-        ws.send(JSON.stringify({ action: "set-id", data: { id: players.get_id(ws) } }))
-        players.all_update()
-        break;
-
-      default:
-        break;
-    }
-  });
-
-  ws.on("close", () => {
-    players.drop(players.get_id(ws))
-    console.log("Пользователь отключился");
-  });
-});
-
-const send = function (socket, param) {
-  socket.send(JSON.stringify(param));
+    },
+    broadcast() {
+      this.send_all({ 
+        action: "map-update", 
+        data: { 
+          size: map.size,
+          berry: map.berry,
+          wall: map.wall,
+          snakes: map.senpentarium
+      } });
+    },
+    _uuidv4: function () {
+      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+        /[xy]/g,
+        function (char) {
+          const rand = (Math.random() * 16) | 0;
+          return (char == "x" ? rand : (rand & 0x3) | 0x8).toString(16);
+        }
+      );
+    },
+  },
 };

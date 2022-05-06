@@ -49,8 +49,6 @@ const open = (name) => {
 window.onload = () => {
   frame.nav.game.onclick = () => {
     open(frame.game);
-    console.log('start')
-    setTimeout(() => send({ action: "start-game" }), 1000);
   };
   frame.nav.room.onclick = () => {
     setTimeout(() => send({ action: "get-room" }), 1000);
@@ -81,181 +79,128 @@ window.onload = () => {
     console.log(err);
   };
 
-  ws.onmessage = function (message) {
-    try {
-      const json = JSON.parse(message.data);
-      switch (json.action) {
-        case "get-room":
+  ws.onmessage = function (msg) {
+      console.log(msg)
+      const json = JSON.parse(msg.data);
+      if(json.action === "get-room"){
           const elem = document.getElementById("room-elem");
           elem.replaceChildren();
           rooms = json.data.forEach((name) =>
             elem.appendChild(room_element(name))
           );
-          break;
-        case "get-map":
-          // new_game();
-
-
-        case "map-update":
-          map.set(json.data);
-          map.render();
-          break;
-
-        case "set-id":
-          console.warn('setid');
-          snake.set_id(json.data.id);
-          break;
-
-        default:
-          break;
       }
-    } catch (error) {
-      console.warn(message, error);
-    }
+      if(json.action === "map-update") map.update(json.data);
+      if(json.action === "set-id")
+          map.player_id = json.data.id;
+          map.player_snake.id = json.data.id;
+
   };
-};
-
-const snake = {
-  id: '',
-  x: 0,
-  y: 0,
-  len: 3,
-  tail: [],
-
-  set_id(id) {
-    this.id = id;
-  },
-
-  update(head, tail) {
-    this.x = head.x; 
-    this.y = head.y;
-    this.tail = tail;
-  },
-
-  tail_update(x, y) {
-    this.tail.unshift([x / map.size.s, y / map.size.s]);
-    if (this.tail.length > this.len) {
-      let drop = this.tail.pop();
-      map.context.clearRect(drop.x, drop.y, map.size.s, map.size.s);
-    }
-  },
-
-  id_n_coord() {
-    return {
-      id: this.id,
-      head: { x: this.x, y: this.y },
-      tail: this.tail,
-    };
-  },
-
-  left() {
-    this.tail_update(this.x, this.y);
-    this.x = this.x <= 0 ? map.size.s * (map.size.x - 1) : this.x - map.size.s;
-    return this.id_n_coord();
-  },
-  right() {
-    this.tail_update(this.x, this.y);
-    this.x = this.x >= map.size.s * (map.size.x - 1) ? 0 : this.x + map.size.s;
-    return this.id_n_coord();
-  },
-  down() {
-    this.tail_update(this.x, this.y);
-    this.y = this.y >= map.size.s * (map.size.y - 1) ? 0 : this.y + map.size.s;
-    return this.id_n_coord();
-  },
-  up() {
-    this.tail_update(this.x, this.y);
-    this.y = this.y <= 0 ? map.size.s * (map.size.y - 1) : this.y - map.size.s;
-    return this.id_n_coord();
-  },
 };
 
 const map = {
   size: {},
-  snake: [],
-  berry: [],
+  game_field: null,
+  player_id: null,
+
   wall: [],
-  context: null,
-  color: {
-    snake: "#FA0556",
-    tail: "#A00034",
-    empty: "#000000",
-    wall: "#00FF00",
-    berry: "#0000FF",
+  berry: [],
+  serpentarium: [],
+  player_snake: {
+    id: "",
+    x: 0,
+    y: 0,
+    len: 3,
+    tail: [],
+
+    move(dir){
+      this.tail_update();
+      this.change_position(dir)
+      send({ 
+        action: "move", 
+        data: { 
+          id: map.player_id, 
+          tail: this.tail, 
+          head: { x: this.x, y: this.y }}});
+    },
+
+    tail_update() {
+      this.tail.unshift([this.x / map.size.s, this.y / map.size.s]);
+      if (this.tail.length > this.len) {
+        let drop = this.tail.pop();
+        map.game_field.clearRect(drop.x, drop.y, map.size.s, map.size.s);
+      }
+    },
+
+    change_position(dir){
+      let ms = map.size.s 
+      let mx = map.size.x - 1 
+      let my = map.size.y - 1 
+      if(dir==="ArrowRight") this.x = this.x >= ms*mx ? 0 : this.x+ms;
+      if(dir=== "ArrowDown") this.y = this.y >= ms*my ? 0 : this.y+ms;
+      if(dir=== "ArrowLeft") this.x = this.x <= 0 ? ms*mx : this.x-ms;
+      if(dir===   "ArrowUp") this.y = this.y <= 0 ? ms*my : this.y-ms;
+    },
   },
 
-  set(data) {
+  update(data) {
     this.size = data.size;
-    this.snake = data.snakes;
-    this.berry = data.berry
-    this.wall = data.wall
+    this.serpentarium = data.snakes;
+    this.berry = data.berry;
+    this.wall = data.wall;
+
+    this.create_field();
   },
 
   create_field() {
     const canvas = id("game-canvas");
     canvas.width = this.size.x * this.size.s;
     canvas.height = this.size.y * this.size.s;
-    this.context = canvas.getContext("2d");
-    return canvas.getContext("2d");
+    this.game_field = canvas.getContext("2d");
+
+    this.render();
   },
 
   render() {
-    console.log(this);
-    const map = this.create_field();
-    console.log("render");
-
     this.berry.forEach(([x, y]) => {
-      paint(map, x, y, this.size.s, this.color.berry);
+      this.paint(x, y, "berry");
     });
-
     this.wall.forEach(([x, y]) => {
-      paint(map, x, y, this.size.s, this.color.wall);
+      this.paint(x, y, "wall");
     });
 
-    console.log("before render snake")
-
-    Object.values(this.snake).forEach(({id, head, tail }) => {
-      console.warn(id, head, tail)
-      if (id === snake.id) {
-        snake.update(head, tail);
+    Object.values(this.serpentarium).forEach(({ id, head, tail }) => {
+      if (id === this.player_id) {
+        this.player_snake.x = head.x;
+        this.player_snake.y = head.y;
+        this.player_snake.tail = tail
       }
-
-      paint(map, head.x/this.size.s, head.y/this.size.s, this.size.s, this.color.snake);
+      this.paint(head.x / this.size.s, head.y / this.size.s, "snake");
       tail.forEach(([x, y]) => {
-        paint(map, x, y, this.size.s, this.color.tail);
+        this.paint(x, y, "tail");
       });
     });
+  },
 
-    function paint(map, x, y, s, color) {
-      map.fillStyle = color;
-      map.fillRect(x * s, y * s, s, s);
-    }
+  paint(x, y, color) {
+    const s = this.size.s;
+    const color_map = {
+      snake: "#FA0556",
+      tail: "#A00034",
+      empty: "#000000",
+      wall: "#00FF00",
+      berry: "#0000FF",
+    };
+    this.game_field.fillStyle = color_map[color];
+    this.game_field.fillRect(x * s, y * s, s, s);
   },
 };
 
 document.onkeydown = function (e) {
-  const key = {
-    up: "ArrowUp",
-    down: "ArrowDown",
-    left: "ArrowLeft",
-    right: "ArrowRight",
-  };
-  console.log(e);
-  switch (e.key) {
-    case key.up:
-      send({ action: "move", data:snake.up() });
-      break;
-    case key.down:
-      send({ action: "move", data: snake.down() });
-      break;
-    case key.left:
-      send({ action: "move", data: snake.left() });
-      break;
-    case key.right:
-      send({ action: "move", data: snake.right() });
-      break;
-
-    default:
-      break;
+  switch(e.key){
+    case "ArrowUp":
+    case "ArrowDown":
+    case "ArrowLeft":
+    case "ArrowRight":
+      map.player_snake.move(e.key)
   }
 };
