@@ -1,45 +1,17 @@
-const socket = require("ws");
+const WebSocketServer = require("ws").Server;
+const wss = new WebSocketServer({ host: "localhost", port: 9000 });
 
-const wss = new socket.Server({ host: "localhost", port: 9000 });
 wss.on("connection", (ws) => {
   map.players.add(ws);
   map.players.broadcast();
 
   ws.on("message", (msg) => {
-    const req = JSON.parse(msg);
-    if (req.action === "create-room") room.create(req.data);
-    if (req.action === "get-room")
-      ws.send(
-        JSON.stringify({
-          action: "get-room",
-          data: room.list(),
-        })
-      );
-    if (req.action === "move") {
-      console.log('move')
-      map.senpentarium[req.data.id] = req.data;
-      map.players.broadcast();
-    }
+    const { action, data } = JSON.parse(msg);
+    if (action === "move") map.players.update_brodcast(data);
   });
 
-  ws.on("close", () => {
-    map.players.drop(ws);
-    console.log("Пользователь отключился");
-  });
+  ws.on("close", () => map.players.drop(ws));
 });
-
-const room = {
-  storage: new Set(),
-  count: function () {
-    return this.storage.length;
-  },
-  create: function (name) {
-    this.storage.add(name);
-  },
-  list: function () {
-    return Array.from(this.storage);
-  },
-};
 
 const map = {
   size: {
@@ -61,7 +33,9 @@ const map = {
   ],
   senpentarium: {},
   add_snake(id) {
-    const point = this.rand_cord();
+    const point = this.random_empty_cord();
+    // const {x, y} = this.random_empty_cord();
+    // console.log(x,y )
     this.senpentarium[id] = {
       id: id,
       head: { x: point.x, y: point.y },
@@ -71,28 +45,20 @@ const map = {
       ],
     };
   },
+  random_empty_cord() {
+    const new_pos = rand_map_cord(this.size) 
+    for (let pos of this.berry) if (equal(pos, new_pos)) return this.rand_cord();
+    for (let pos of this.wall) if (equal(pos, new_pos)) return this.rand_cord();
+    return new_pos;
 
-  check_collision(obj1, obj2) {
-    return JSON.stringify(obj1) === JSON.stringify(obj2);
-  },
+    function equal(obj1, obj2) {
+      return JSON.stringify(obj1) === JSON.stringify(obj2);
+    }
 
-  rand(val) {
-    return this.getRandomInt(0, val) * this.size.s;
-  },
-  getRandomInt(min, max) {
-    return Math.floor(Math.random() * (max - min) + min);
-  },
-  rand_cord() {
-    let x = this.rand(this.size.x);
-    let y = this.rand(this.size.y);
-
-    for (let e of this.berry)
-      if (this.check_collision(e, { x, y })) return this.rand_cord();
-
-    for (let e of this.wall)
-      if (this.check_collision(e, { x, y })) return this.rand_cord();
-
-    return { x, y };
+    function rand_map_cord(size) {
+      const rand = val => Math.floor(Math.random() * val)
+      return {x: rand(size.x) * size.s, y: rand(size.y) * size.s} 
+    }
   },
   players: {
     storage: {},
@@ -100,49 +66,54 @@ const map = {
       return Object.keys(this.storage).length;
     },
     add(ws) {
-      const id = this._uuidv4();
+      const id = uuidv4();
       this.storage[id] = ws;
       map.add_snake(id);
-      ws.send(JSON.stringify({ action: "set-id", data: { id } }));
+      ws.send(JSON.stringify({ action: "socket-id", data: { id } }));
+      console.log(`Add user: ${id}`);
+
+      function uuidv4() {
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+          /[xy]/g,
+          function (char) {
+            const rand = (Math.random() * 16) | 0;
+            return (char == "x" ? rand : (rand & 0x3) | 0x8).toString(16);
+          }
+        );
+      }
     },
     drop(ws) {
-      delete this.storage[this.get_id(ws)];
+      const id = this.get_id(ws);
+      delete this.storage[id];
+      console.log(`Drop user: ${id}`);
     },
     get_socket(id) {
       return this.storage[id];
     },
     get_id(ws) {
-      let id;
       Object.entries(this.storage).forEach((client) => {
-        if (client[1] === ws) {
-          id = client[0];
-        }
+        if (client[1] === ws) return client[0];
       });
-      return id;
     },
-    send_all(msg) {
-      console.log(msg);
-      Object.values(this.storage).forEach((ws) => ws.send(JSON.stringify(msg)));
 
+    update_brodcast(data) {
+      map.senpentarium[data.id] = data;
+      this.broadcast();
     },
     broadcast() {
-      this.send_all({ 
-        action: "map-update", 
-        data: { 
+      send_all({
+        action: "update",
+        data: {
           size: map.size,
           berry: map.berry,
           wall: map.wall,
-          snakes: map.senpentarium
-      } });
-    },
-    _uuidv4: function () {
-      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
-        /[xy]/g,
-        function (char) {
-          const rand = (Math.random() * 16) | 0;
-          return (char == "x" ? rand : (rand & 0x3) | 0x8).toString(16);
-        }
-      );
+          snakes: map.senpentarium,
+        },
+      });
+
+      function send_all(msg){
+        wss.clients.forEach(ws=>ws.send(JSON.stringify(msg)))
+      }
     },
   },
 };

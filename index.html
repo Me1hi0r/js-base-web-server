@@ -6,66 +6,10 @@
  <meta name="viewport" content="width=device-width, initial-scale=1.0">
  <link rel="stylesheet" href="style.css">
  <title>Snake</title>
-
 </head>
-<body>
-    <div class="nav">
-      <div class="flex">
-        <button id="room" class="nav-button">room</button>
-        <button id="user" class="nav-button">user</button>
-        <button id="game" class="nav-button">game</button>
-        <button id="start" class="nav-button">start</button>
-      </div>
-    </div>
-    <div class="flex">
-      <div id="start-screen" class="screen">
-        <div class="flex">
-          <div class="flex-c">
-            <div class="title">SNAKE GAME</div>
-            <button id="new-game" class="flex"> NEW GAME</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div id="room-screen" class="screen">
-        <div class="flex">
-          <div class="flex-c">
-            <div class="title">ROOM</div>
-            <div class="room-list">
-              ROOMS:
-              <div id="room-elem"></div>
-              <input type="text" id="name-room">
-              <button id="new-room">create new room</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div id="user-screen" class="screen">
-        <div class="flex">
-          <div class="flex-c">
-            <div class="title">USER</div>
-          </div>
-        </div>
-      </div>
-      <div id="game-screen" class="screen">
-        <div class="flex">
-          <div class="flex-c">
-            <div class="title">GAME</div>
-    <div id="games">
-        <div class="game-header">
-            <div class="game-score">    
-                <span class="score-count" id="score">0</span>
-            </div>
-        </div> 
-        <div class="canvas-wrapper" id="map-disp">
-            <canvas id="game-canvas"></canvas>
-        </div>
-    </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
+  <div class="canvas-wrapper" id="map-disp">
+      <canvas id="game-canvas"></canvas>
+  </div>
  <script src="ws-client.js"></script>
 </body>
 </html>
