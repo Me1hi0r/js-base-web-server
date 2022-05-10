@@ -1,21 +1,7 @@
 const fs = require("ws");
 const WebSocketServer = require("ws").Server;
 const WebSocket = require("ws").WebSocket;
-const wss = new WebSocketServer({ host: "localhost", port: 9000 });
 
-const text = `@@@@@@@@@@@@
-@bbbb      @
-@          @
-@          @
-@          @
-@          @
-@          @
-@          @
-@          @
-@          @
-@          @
-@@@@@@@@@@@@
-`;
 
 const uuidv4 = () => {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
@@ -37,7 +23,7 @@ const game = {
     add(ws, id) {
       this.storage[id] = ws;
       game.map.add_snake(id);
-      ws.send(JSON.stringify({ action: "socket-id", data: { id } }));
+      ws.send(JSON.stringify({ action: "create", data: { id } }));
       console.log(`Add user: ${id}`);
     },
     drop(name) {
@@ -50,7 +36,6 @@ const game = {
         }
       });
     },
-
     send(obj) {
       wss.clients.forEach((ws) => {
         if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
@@ -59,10 +44,10 @@ const game = {
   },
   map: {
     prop: {
-      px: 16,
-      x: 12,
-      y: 12,
-      berry: 10,
+      px: null,
+      x: null,
+      y: null,
+      berry: null,
     },
     object: [
       [{ type: "w", color: "#112233" }, []],
@@ -114,7 +99,7 @@ const game = {
         if (prop.type === "s" && prop.id === id) {
           console.log('before delete')
           game.map.add_empty(...data)
-          this.object = this.object.filter((elem, ind)=> ind != cnt)
+          this.object = this.object.filter((_, ind)=> ind != cnt)
           return;
         }
         cnt++;
@@ -176,13 +161,31 @@ async function getFile(path) {
   return await promise;
 }
 
+const text = `@@@@@@@@@@@@
+@bbbb      @
+@          @
+@          @
+@          @
+@          @
+@          @
+@          @
+@          @
+@          @
+@          @
+@@@@@@@@@@@@
+`;
+
+game.map.init({px: 5, x: 50, y: 40, berry: 10})
 game.map.parse(text).add_rand_berry();
+
+const wss = new WebSocketServer({ host: "localhost", port: 9000 });
 wss.on("connection", (ws) => {
   game.players.add(ws, uuidv4());
   game.players.send(game.map.update_data());
 
   ws.on("message", (msg) => {
     const { action, ...data } = JSON.parse(msg);
+    console.log(action, data);
     if (action === "move") {
       game.map.update_snake(data.id, data.dir);
       game.players.send(game.map.update_data());
