@@ -10,10 +10,16 @@ ws.onmessage = (msg) => {
 };
 
 setInterval(() => {
-  const move = ["ArrowDown",  "ArrowLeft"];
-  let last
-  const rnd_index = Math.floor(Math.random() * move.length);
-  const rnd_elem = Array.from(move.values())[rnd_index];
-  console.log(rnd_elem);
-  ws.send(JSON.stringify({ action: "move", id: id, dir: rnd_elem }));
-}, 5);
+  let lastDir = "ArrowUp";
+  const move = {
+    ArrowUp: ["ArrowLeft", "ArrowUp", "ArrowRight"],
+    ArrowRight: ["ArrowUp", "ArrowRight", "ArrowDown"],
+    ArrowDown: ["ArrowLeft", "ArrowDown", "ArrowRight"],
+    ArrowLeft: ["ArrowUp", "ArrowLeft", "ArrowDown"],
+  }
+
+  
+
+  lastDir = Array.from(move[lastDir].values())[Math.floor(Math.random() * 3)];
+  ws.send(JSON.stringify({ action: "move", id: id, dir: lastDir }));
+}, 100);

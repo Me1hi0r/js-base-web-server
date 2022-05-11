@@ -89,9 +89,10 @@ const game = {
     },
     add_snake(id) {
       this.object.push([
-        { type: "s", color: "blue", id: id, length: 5 },
-        [this.pop_rnd_empty()],
+        { type: "s", color: "blue", id: id, length: 5 ,sens:[]}, [this.pop_rnd_empty()],
       ]);
+
+            // prop.sens = this.snake_sensor(head)
     },
     drop_snake(id) {
       let cnt = 0;
@@ -125,24 +126,45 @@ const game = {
         }
       });
     },
+    _inc(key, val){
+        return ++val >= this.prop[key] - 1 ? 0: val 
+    },
+    _dec(key, val){
+        return --val <= 0 ? this.prop[key] - 1: val 
+    },
     update_snake(id, dir) {
       const update_cord = (dir, [x, y] = cord) => {
-        if (dir === "ArrowRight") x = x >= this.prop.x - 1 ? 0 : ++x;
-        if (dir === "ArrowDown") y = y >= this.prop.y - 1 ? 0 : ++y;
-        if (dir === "ArrowLeft") x = x <= 0 ? this.prop.x - 1 : --x;
-        if (dir === "ArrowUp") y = y <= 0 ? this.prop.y - 1 : --y;
+        if (dir === "ArrowRight") x = this._inc('x', x);
+        if (dir === "ArrowDown") y = this._inc('y', y) 
+        if (dir === "ArrowLeft") x = this._dec('x', x);
+        if (dir === "ArrowUp") y = this._dec('y',y);
         return [x, y];
       };
       this.object.forEach(([prop, snake]) => {
         if (prop.type === "s") {
           if (prop.id === id) {
-            const head = snake[0];
-            snake.unshift(update_cord(dir, head));
+            prop.dir = dir
+            snake.unshift(update_cord(dir, snake[0]));
+            prop.sens = this.snake_sensor(snake[0])
             if (snake.length > prop.length) game.map.add_empty(snake.pop());
             return snake;
           }
         }
       });
+    },
+    snake_sensor(head){
+      const [x, y] = head;
+      return [
+        [this._inc('x',x), y],
+        [this._dec('x',x), y],
+        [x, this._inc('y',y)],
+        [x, this._dec('y',y)],
+        [this._inc('x',x), this._inc('y',y)],
+        [this._dec('x',x), this._inc('y',y)],
+        [this._dec('x',x), this._dec('y',y)],
+        [this._inc('x',x), this._dec('y',y)],
+      ]
+      
     },
   },
 };
@@ -175,7 +197,7 @@ const text = `@@@@@@@@@@@@
 @@@@@@@@@@@@
 `;
 
-game.map.init({px: 5, x: 50, y: 40, berry: 10})
+game.map.init({px: 20, x: 50, y: 40, berry: 10})
 game.map.parse(text).add_rand_berry();
 
 const wss = new WebSocketServer({ host: "localhost", port: 9000 });
@@ -187,6 +209,7 @@ wss.on("connection", (ws) => {
     const { action, ...data } = JSON.parse(msg);
     console.log(action, data);
     if (action === "move") {
+      data.dir
       game.map.update_snake(data.id, data.dir);
       game.players.send(game.map.update_data());
     }
